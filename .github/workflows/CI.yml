@@ -1,0 +1,119 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Build the native addon for every supported target and upload as artifacts.
+  # All targets build natively (incl. Linux arm64 via arm64 runner) — no
+  # cross-compilation, which keeps the matrix simple and reliable.
+  # ---------------------------------------------------------------------------
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - host: macos-latest
+            target: aarch64-apple-darwin
+          - host: macos-latest
+            # Cross-compile the Intel target on the arm64 runner (Xcode clang
+            # supports this natively) to avoid the scarce macos-13 Intel queue.
+            target: x86_64-apple-darwin
+          - host: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - host: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+          - host: windows-latest
+            target: x86_64-pc-windows-msvc
+    name: build - ${{ matrix.target }}
+    runs-on: ${{ matrix.host }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+      - name: Install dependencies
+        run: npm install
+      - name: Build native addon
+        run: npx napi build --platform --release --target ${{ matrix.target }} --js binding.js --dts binding.d.ts
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bindings-${{ matrix.target }}
+          path: "*.node"
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # Build natively on each OS and run the JS test suite.
+  # ---------------------------------------------------------------------------
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        host: [ubuntu-latest, macos-latest, windows-latest]
+        node: [18, 20, 22]
+    name: test - ${{ matrix.host }} - node ${{ matrix.node }}
+    runs-on: ${{ matrix.host }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: npm install
+      - run: npm run build
+      - run: npm test
+
+  # ---------------------------------------------------------------------------
+  # On a version tag (vX.Y.Z): bundle ALL platform binaries into the single
+  # main package and publish it. One package on npm; the loader picks the
+  # matching local .node at runtime.
+  # ---------------------------------------------------------------------------
+  publish:
+    name: publish
+    runs-on: ubuntu-latest
+    needs: [build, test]
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: "https://registry.npmjs.org"
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install dependencies
+        run: npm install
+      - name: Generate native loader/types and build JS layer
+        # napi build (re)generates binding.js + binding.d.ts (the platform loader).
+        run: |
+          npx napi build --platform --release --js binding.js --dts binding.d.ts
+          npm run build:js
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Bundle every platform binary into the package root
+        run: cp artifacts/*.node .
+      - name: Publish package
+        # --ignore-scripts skips prepublishOnly (we already built everything).
+        run: npm publish --access public --ignore-scripts
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

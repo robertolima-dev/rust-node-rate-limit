@@ -1,0 +1,15 @@
+# Rust
+/target
+
+# Node
+node_modules
+dist
+
+# Generated native artifacts (built by `napi build`)
+*.node
+binding.js
+binding.d.ts
+
+# Misc
+.DS_Store
+*.log
