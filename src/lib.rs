@@ -19,6 +19,7 @@ mod entry;
 mod errors;
 mod fixed_window;
 mod rate_limiter;
+mod sliding_window;
 mod stats;
 
 // Re-exports públicos (consumidos pela camada de testes Rust e pela geração de
