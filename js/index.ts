@@ -18,9 +18,6 @@ export type {
   RateLimiterOptions,
 } from "../binding.js";
 
-/** Sanity check: returns "Hello from Rust" from the native core. */
-export const hello: () => string = native.hello;
-
 /**
  * Local (in-process) rate limiter with Fixed Window and Sliding Window algorithms and a Rust core.
  *

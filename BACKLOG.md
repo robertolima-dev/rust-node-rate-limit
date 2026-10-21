@@ -1,5 +1,14 @@
 # Project: rust-node-rate-limit
 
+## Shipped — v0.3.0
+
+- ✅ **NestJS guard headers on Fastify** — the guard only wrote `X-RateLimit-*`/`Retry-After`
+  when the response had `setHeader` (Express). Under `@nestjs/platform-fastify` the response is
+  a `FastifyReply` with `header()`, so the headers were silently missing (2026-10-21).
+- ✅ **Breaking:** the `hello()` sanity-check export was removed.
+- ✅ Adapter tests with a real Express server, Fastify sibling routes and the Nest guard on both
+  platforms.
+
 ## Shipped — v0.2.2
 
 - ✅ **No silent truncation** — `limit` and `windowSeconds` arrived as integers through

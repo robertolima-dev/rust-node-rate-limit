@@ -181,7 +181,9 @@ app.useGlobalGuards(
 );
 ```
 
-The guard throws `HttpException` with status `429` when the limit is exceeded.
+The guard throws `HttpException` with status `429` when the limit is exceeded,
+and writes the `X-RateLimit-*` / `Retry-After` headers on both
+`@nestjs/platform-express` and `@nestjs/platform-fastify`.
 
 ---
 
@@ -324,10 +326,11 @@ global lock.
 | ------- | ------------------------------------ | ------ |
 | v0.1    | Fixed Window                         | ✅     |
 | v0.2    | Sliding Window                       | ✅     |
-| v0.3    | Token Bucket                         | 🔜     |
-| v0.4    | Redis backend (distributed limits)   | 🔜     |
-| v0.5    | Prometheus metrics                   | 🔜     |
-| v0.6    | ImmutableLog integration             | 🔜     |
+| v0.3    | Nest guard headers on Fastify; `hello()` removed | ✅ |
+| v0.4    | Token Bucket                         | 🔜     |
+| v0.5    | Redis backend (distributed limits)   | 🔜     |
+| v0.6    | Prometheus metrics                   | 🔜     |
+| later   | ImmutableLog integration             | 🔜     |
 
 ---
 

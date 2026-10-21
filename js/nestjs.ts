@@ -55,18 +55,16 @@ export class RateLimitGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const http = context.switchToHttp();
     const req = http.getRequest<{ ip?: string }>();
-    const res = http.getResponse<{
-      setHeader?: (name: string, value: string | number) => void;
-    }>();
+    const setHeader = headerSetter(http.getResponse());
 
     const result = this.limiter.check(this.keyGenerator(req));
 
-    if (typeof res?.setHeader === "function") {
-      res.setHeader("X-RateLimit-Limit", result.limit);
-      res.setHeader("X-RateLimit-Remaining", Math.max(0, result.remaining));
-      res.setHeader("X-RateLimit-Reset", result.resetAfter);
+    if (setHeader) {
+      setHeader("X-RateLimit-Limit", result.limit);
+      setHeader("X-RateLimit-Remaining", Math.max(0, result.remaining));
+      setHeader("X-RateLimit-Reset", result.resetAfter);
       if (!result.allowed) {
-        res.setHeader("Retry-After", result.retryAfter);
+        setHeader("Retry-After", result.retryAfter);
       }
     }
 
@@ -76,4 +74,21 @@ export class RateLimitGuard implements CanActivate {
 
     return true;
   }
+}
+
+type SetHeader = (name: string, value: number) => void;
+
+/**
+ * Header writer for the platform's response: Express has `res.setHeader`,
+ * Fastify (`@nestjs/platform-fastify`) has `reply.header`. `undefined` outside
+ * HTTP, where there are no headers to write.
+ */
+function headerSetter(res: unknown): SetHeader | undefined {
+  const r = res as {
+    setHeader?: (name: string, value: number) => void;
+    header?: (name: string, value: number) => void;
+  } | null;
+  if (typeof r?.setHeader === "function") return r.setHeader.bind(r);
+  if (typeof r?.header === "function") return r.header.bind(r);
+  return undefined;
 }

@@ -1,11 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { RateLimiter, hello } from "../js/index";
-
-describe("hello()", () => {
-  it("retorna a saudação vinda do core Rust", () => {
-    expect(hello()).toBe("Hello from Rust");
-  });
-});
+import { RateLimiter } from "../js/index";
 
 describe("RateLimiter — allow()/check()", () => {
   it("permite requisições abaixo do limite", () => {
