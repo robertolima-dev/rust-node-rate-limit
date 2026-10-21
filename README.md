@@ -40,6 +40,25 @@ Works with both **ESM** and **CommonJS**, and requires **Node.js 18+**.
 
 ---
 
+## Supported platforms
+
+Prebuilt binaries are published for:
+
+| OS      | Architecture          | Triple                       |
+| ------- | --------------------- | ---------------------------- |
+| macOS   | arm64                 | `aarch64-apple-darwin`       |
+| macOS   | x64                   | `x86_64-apple-darwin`        |
+| Linux   | x64 (glibc)           | `x86_64-unknown-linux-gnu`   |
+| Linux   | arm64 (glibc)         | `aarch64-unknown-linux-gnu`  |
+| Linux   | x64 (musl, Alpine)    | `x86_64-unknown-linux-musl`  |
+| Linux   | arm64 (musl, Alpine)  | `aarch64-unknown-linux-musl` |
+| Windows | x64                   | `x86_64-pc-windows-msvc`     |
+
+Every release is installed from the packed tarball and exercised on each of these platforms
+in CI before it is published.
+
+---
+
 ## Basic Usage
 
 ```ts

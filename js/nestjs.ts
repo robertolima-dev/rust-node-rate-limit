@@ -1,13 +1,13 @@
 /**
- * Integração com NestJS.
+ * NestJS integration.
  *
- * Uso:
+ * Usage:
  *   import { RateLimitGuard } from "rust-node-rate-limit/nestjs";
  *   app.useGlobalGuards(new RateLimitGuard({ limit: 100, windowSeconds: 60 }));
  *
- * Importamos `HttpException`/`HttpStatus` em runtime (de `@nestjs/common`) para
- * responder corretamente com `429`. `@nestjs/common` é uma peerDependency
- * opcional — só é necessária para quem usa este subcaminho.
+ * `HttpException`/`HttpStatus` are imported at runtime (from `@nestjs/common`) to
+ * respond with a proper `429`. `@nestjs/common` is an optional peerDependency,
+ * needed only by users of this subpath.
  */
 
 import { HttpException, HttpStatus } from "@nestjs/common";
@@ -18,22 +18,22 @@ import type {
 import { RateLimiter } from "../binding.js";
 
 export interface RateLimitGuardOptions {
-  /** Máximo de requisições por janela. */
+  /** Maximum requests per window. */
   limit: number;
-  /** Duração da janela, em segundos. */
+  /** Window length, in seconds. */
   windowSeconds: number;
-  /** Deriva a chave a partir da requisição HTTP. Padrão: `req.ip`. */
+  /** Derives the key from the HTTP request. Default: `req.ip`. */
   keyGenerator?: (req: { ip?: string }) => string;
-  /** Mensagem da exceção quando bloqueado. Padrão: "Too many requests". */
+  /** Exception message when blocked. Default: "Too many requests". */
   message?: string;
-  /** Reusar um `RateLimiter` existente (ignora `limit`/`windowSeconds`). */
+  /** Reuse an existing `RateLimiter` (ignores `limit`/`windowSeconds`). */
   limiter?: RateLimiter;
 }
 
 /**
- * Guard NestJS de rate limiting. Consulta o core nativo, escreve os headers
- * `X-RateLimit-*` na resposta e lança `HttpException(429)` quando o limite é
- * excedido.
+ * NestJS rate limiting guard. Asks the native core, writes the `X-RateLimit-*`
+ * headers on the response and throws `HttpException(429)` when the limit is
+ * exceeded.
  */
 export class RateLimitGuard implements CanActivate {
   private readonly limiter: RateLimiter;

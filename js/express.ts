@@ -1,7 +1,7 @@
 /**
- * Integração com Express.
+ * Express integration.
  *
- * Uso:
+ * Usage:
  *   import { rateLimitMiddleware } from "rust-node-rate-limit/express";
  *   app.use(rateLimitMiddleware({ limit: 100, windowSeconds: 60 }));
  */
@@ -10,30 +10,30 @@ import type { Request, Response, NextFunction } from "express";
 import { RateLimiter } from "../binding.js";
 
 export interface RateLimitMiddlewareOptions {
-  /** Máximo de requisições por janela. */
+  /** Maximum requests per window. */
   limit: number;
-  /** Duração da janela, em segundos. */
+  /** Window length, in seconds. */
   windowSeconds: number;
   /**
-   * Deriva a chave de rate limit a partir da requisição.
-   * Padrão: o IP do cliente (`req.ip`), com fallback `"global"`.
+   * Derives the rate limit key from the request.
+   * Default: the client IP (`req.ip`), falling back to `"global"`.
    */
   keyGenerator?: (req: Request) => string;
-  /** Corpo JSON retornado quando bloqueado. Padrão: "Too many requests". */
+  /** JSON body returned when blocked. Default: "Too many requests". */
   message?: string;
-  /** Status HTTP quando bloqueado. Padrão: 429. */
+  /** HTTP status when blocked. Default: 429. */
   statusCode?: number;
   /**
-   * Reusar um `RateLimiter` já existente (ex.: compartilhado entre rotas).
-   * Quando informado, `limit`/`windowSeconds` são ignorados.
+   * Reuse an existing `RateLimiter` (e.g. shared between routes).
+   * When given, `limit`/`windowSeconds` are ignored.
    */
   limiter?: RateLimiter;
 }
 
 /**
- * Cria um middleware Express de rate limiting. Em cada requisição consulta o
- * core nativo, escreve os headers `X-RateLimit-*` e, se exceder o limite,
- * responde `429` com `Retry-After`.
+ * Creates an Express rate limiting middleware. On each request it asks the
+ * native core, writes the `X-RateLimit-*` headers and, when over the limit,
+ * responds `429` with `Retry-After`.
  */
 export function rateLimitMiddleware(options: RateLimitMiddlewareOptions) {
   const limiter =

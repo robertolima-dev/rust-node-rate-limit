@@ -1,6 +1,6 @@
 {
   "name": "rust-node-rate-limit",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Ultra-fast rate limiting for Node.js powered by Rust.",
   "keywords": [
     "rate-limit",
@@ -66,7 +66,9 @@
         "aarch64-apple-darwin",
         "aarch64-unknown-linux-gnu",
         "x86_64-unknown-linux-gnu",
-        "x86_64-pc-windows-msvc"
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-musl",
+        "aarch64-unknown-linux-musl"
       ]
     }
   },

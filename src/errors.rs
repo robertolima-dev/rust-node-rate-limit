@@ -1,17 +1,17 @@
-//! Erros do núcleo do rate limiter.
+//! Errors of the rate limiter core.
 
 use thiserror::Error;
 
-/// Erros que podem ocorrer ao configurar/usar o limiter.
+/// Errors that can happen when configuring or using the limiter.
 #[derive(Debug, Error)]
 pub enum RateLimitError {
-    /// Configuração inválida passada ao construtor (ex.: limite <= 0).
+    /// Invalid configuration passed to the constructor (e.g. limit <= 0).
     #[error("invalid configuration: {0}")]
     InvalidConfig(String),
 }
 
-/// Converte o erro do domínio em `napi::Error`, que o Node lança como uma
-/// exceção JavaScript comum (com mensagem amigável).
+/// Converts the domain error into a `napi::Error`, which Node throws as a
+/// regular JavaScript exception (with a readable message).
 impl From<RateLimitError> for napi::Error {
     fn from(err: RateLimitError) -> Self {
         napi::Error::from_reason(err.to_string())

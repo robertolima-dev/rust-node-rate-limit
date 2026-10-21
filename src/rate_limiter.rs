@@ -1,4 +1,4 @@
-//! A classe `RateLimiter` exposta ao Node.
+//! The `RateLimiter` class exposed to Node.
 
 use dashmap::DashMap;
 use napi_derive::napi;
@@ -10,19 +10,19 @@ use crate::fixed_window;
 use crate::sliding_window::{self, SlidingEntry};
 use crate::stats::{CheckResult, Counters, RateLimitStats};
 
-/// Backend de algoritmo selecionado. Cada variante é dona do seu próprio
-/// `DashMap` (com o tipo de entrada adequado); os métodos do `RateLimiter`
-/// despacham para o ativo. Manter mapas separados deixa o caminho do Fixed
-/// Window inalterado e o do Sliding Window autocontido.
+/// The selected algorithm backend. Each variant owns its own `DashMap` (with
+/// the matching entry type); the `RateLimiter` methods dispatch to the active
+/// one. Separate maps keep the Fixed Window path unchanged and the Sliding
+/// Window path self-contained.
 enum Backend {
     Fixed(DashMap<String, RateLimitEntry>),
     Sliding(DashMap<String, SlidingEntry>),
 }
 
 impl Backend {
-    /// Núcleo de `allow()`/`check()`: aplica o algoritmo ativo de forma atômica
-    /// por chave. O `RefMut` segura o lock do shard durante a modificação,
-    /// garantindo atomicidade leitura-modificação-escrita para esta chave.
+    /// Core of `allow()`/`check()`: applies the active algorithm atomically per key.
+    /// The `RefMut` holds the shard lock during the update, which makes the
+    /// read-modify-write atomic for this key.
     fn apply(&self, key: String, limit: u64, window: u64, now: u64) -> fixed_window::Decision {
         match self {
             Backend::Fixed(entries) => {
@@ -39,8 +39,8 @@ impl Backend {
         }
     }
 
-    /// Requisições restantes para `key` sem consumir. Chave inexistente/expirada
-    /// devolve o limite cheio.
+    /// Requests left for `key` without consuming one. A missing or expired key
+    /// returns the full limit.
     fn remaining(&self, key: &str, limit: u64, window: u64, now: u64) -> u64 {
         match self {
             Backend::Fixed(entries) => match entries.get(key) {
@@ -100,27 +100,27 @@ impl Backend {
     }
 }
 
-/// Opções do construtor: `new RateLimiter({ limit, windowSeconds, algorithm })`.
+/// Constructor options: `new RateLimiter({ limit, windowSeconds, algorithm })`.
 ///
-/// `#[napi(object)]` aceita um objeto JS simples. `window_seconds` vira
-/// `windowSeconds` no JS automaticamente. `algorithm` é opcional e default
+/// `#[napi(object)]` accepts a plain JS object. `window_seconds` becomes
+/// `windowSeconds` in JS automatically. `algorithm` is optional and defaults to
 /// `"fixed"`.
 #[napi(object)]
 pub struct RateLimiterOptions {
-    /// Máximo de requisições permitidas por janela.
+    /// Maximum number of requests allowed per window.
     pub limit: i64,
-    /// Duração da janela, em segundos.
+    /// Window length, in seconds.
     pub window_seconds: i64,
-    /// Estratégia: `"fixed"` (default) ou `"sliding"` (sliding window counter,
-    /// que suaviza rajadas na borda da janela).
+    /// Strategy: `"fixed"` (default) or `"sliding"` (sliding window counter,
+    /// which smooths bursts at the window boundary).
     pub algorithm: Option<String>,
 }
 
-/// Rate limiter local (in-process) com algoritmos Fixed Window e Sliding Window.
+/// Local (in-process) rate limiter with Fixed Window and Sliding Window algorithms.
 ///
-/// Os métodos recebem `&self` (não `&mut self`): a mutabilidade é interna via
-/// `DashMap` (por chave) e contadores atômicos. Isso torna o limiter seguro e
-/// eficiente sob concorrência, sem um lock global.
+/// Methods take `&self` (not `&mut self`): mutability is internal, through
+/// `DashMap` (per key) and atomic counters. That keeps the limiter safe and
+/// efficient under concurrency, without a global lock.
 #[napi]
 pub struct RateLimiter {
     limit: u64,
@@ -131,7 +131,7 @@ pub struct RateLimiter {
 
 #[napi]
 impl RateLimiter {
-    /// Cria um limiter. Lança erro (exceção JS) se a configuração for inválida.
+    /// Creates a limiter. Throws (a JS exception) if the configuration is invalid.
     #[napi(constructor)]
     pub fn new(options: RateLimiterOptions) -> napi::Result<Self> {
         if options.limit <= 0 {
@@ -165,51 +165,51 @@ impl RateLimiter {
         })
     }
 
-    /// O algoritmo ativo: `"fixed"` ou `"sliding"`.
+    /// The active algorithm: `"fixed"` or `"sliding"`.
     #[napi(getter)]
     pub fn algorithm(&self) -> String {
         self.backend.name().to_string()
     }
 
-    /// Tenta consumir uma requisição para `key`. Retorna `true` se permitida.
+    /// Tries to consume one request for `key`. Returns `true` if allowed.
     #[napi]
     pub fn allow(&self, key: String) -> bool {
         self.apply(key).allowed
     }
 
-    /// Como `allow()`, mas retorna o resultado detalhado da verificação.
+    /// Like `allow()`, but returns the detailed result of the check.
     #[napi]
     pub fn check(&self, key: String) -> CheckResult {
         self.apply(key)
     }
 
-    /// Requisições restantes para `key` na janela atual (somente leitura: não
-    /// consome). Se a chave não existe ou a janela expirou, retorna o limite.
+    /// Requests left for `key` in the current window (read-only: does not
+    /// consume). If the key does not exist or its window expired, returns the limit.
     #[napi]
     pub fn remaining(&self, key: String) -> i64 {
         self.backend
             .remaining(&key, self.limit, self.window_seconds, now_seconds()) as i64
     }
 
-    /// Remove o estado de uma única chave (zera sua contagem).
+    /// Removes the state of a single key (resets its count).
     #[napi]
     pub fn reset(&self, key: String) {
         self.backend.reset(&key);
     }
 
-    /// Remove o estado de todas as chaves. Não zera os contadores de `stats()`.
+    /// Removes the state of every key. Does not reset the `stats()` counters.
     #[napi]
     pub fn clear(&self) {
         self.backend.clear();
     }
 
-    /// Remove chaves com janela expirada e retorna quantas foram removidas.
+    /// Removes keys whose window expired and returns how many were removed.
     #[napi]
     pub fn cleanup(&self) -> i64 {
         self.backend.cleanup(self.window_seconds, now_seconds()) as i64
     }
 
-    /// Retorna os contadores acumulados e o número de chaves ativas.
+    /// Returns the accumulated counters and the number of active keys.
     #[napi]
     pub fn stats(&self) -> RateLimitStats {
         let allowed = self.counters.allowed();
@@ -222,8 +222,8 @@ impl RateLimiter {
         }
     }
 
-    /// Núcleo compartilhado por `allow()` e `check()`: aplica o algoritmo ativo
-    /// de forma atômica por chave e registra a estatística.
+    /// Core shared by `allow()` and `check()`: applies the active algorithm
+    /// atomically per key and records the statistic.
     fn apply(&self, key: String) -> CheckResult {
         let now = now_seconds();
         let decision = self

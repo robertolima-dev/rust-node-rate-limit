@@ -1,18 +1,18 @@
-//! Entrada de contagem por chave (uma "janela" do Fixed Window).
+//! Per-key counter entry (one Fixed Window "window").
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-/// Estado de uma chave dentro da janela fixa atual.
+/// State of a key within the current fixed window.
 ///
-/// `count`        -> quantas requisições já foram contabilizadas na janela.
-/// `window_start` -> timestamp Unix (segundos) em que a janela atual começou.
+/// `count`        -> how many requests were counted in the window so far.
+/// `window_start` -> Unix timestamp (seconds) when the current window started.
 pub struct RateLimitEntry {
     pub count: u64,
     pub window_start: u64,
 }
 
 impl RateLimitEntry {
-    /// Cria uma entrada nova, iniciando a janela em `now`.
+    /// Creates a new entry, starting the window at `now`.
     pub fn new(now: u64) -> Self {
         Self {
             count: 0,
@@ -21,10 +21,10 @@ impl RateLimitEntry {
     }
 }
 
-/// Tempo atual em segundos desde a época Unix.
+/// Current time in seconds since the Unix epoch.
 ///
-/// Em caso de relógio inválido (anterior à época), retorna 0 em vez de entrar
-/// em pânico — manter o limiter funcionando é preferível a derrubar o processo.
+/// If the clock is invalid (before the epoch), returns 0 instead of panicking —
+/// keeping the limiter working is better than taking the process down.
 pub fn now_seconds() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)

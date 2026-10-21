@@ -1,19 +1,19 @@
 //! rust-node-rate-limit
 //!
-//! Núcleo nativo (Rust) do rate limiter. Expõe ao Node, via N-API:
-//! - `hello()`        -> string de sanity-check.
-//! - `RateLimiter`    -> classe de rate limiting (algoritmo Fixed Window).
+//! Native (Rust) core of the rate limiter. Exposes to Node, through N-API:
+//! - `hello()`        -> sanity-check string.
+//! - `RateLimiter`    -> the rate limiting class (Fixed and Sliding Window).
 //!
-//! Como o Rust expõe coisas para o Node:
-//! O macro `#[napi]` (do crate `napi-derive`) gera, em tempo de compilação, o
-//! código de "cola" que registra funções/classes no módulo N-API. Quando o Node
-//! carrega o arquivo `.node`, elas aparecem como JavaScript normal. Nomes em
-//! `snake_case` no Rust viram `camelCase` no JS automaticamente.
+//! How Rust exposes things to Node:
+//! The `#[napi]` macro (from the `napi-derive` crate) generates, at compile time,
+//! the glue code that registers functions/classes in the N-API module. When Node
+//! loads the `.node` file, they show up as regular JavaScript. `snake_case` names
+//! in Rust become `camelCase` in JS automatically.
 
 use napi_derive::napi;
 
-// Submódulos do núcleo. A separação segue a arquitetura do BACKLOG:
-// cada arquivo tem uma responsabilidade única.
+// Core submodules. The split follows the BACKLOG architecture:
+// each file has a single responsibility.
 mod cleanup;
 mod entry;
 mod errors;
@@ -22,12 +22,12 @@ mod rate_limiter;
 mod sliding_window;
 mod stats;
 
-// Re-exports públicos (consumidos pela camada de testes Rust e pela geração de
-// tipos). O registro N-API acontece no ponto de definição de cada `#[napi]`.
+// Public re-exports (used by the Rust test layer and by type generation).
+// N-API registration happens where each `#[napi]` item is defined.
 pub use rate_limiter::{RateLimiter, RateLimiterOptions};
 pub use stats::{CheckResult, RateLimitStats};
 
-/// Sanity-check: confirma que o addon nativo carregou corretamente.
+/// Sanity check: confirms that the native addon loaded correctly.
 #[napi]
 pub fn hello() -> String {
     "Hello from Rust".to_string()

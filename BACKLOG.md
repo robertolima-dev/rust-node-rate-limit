@@ -1,5 +1,18 @@
 # Project: rust-node-rate-limit
 
+## Shipped — v0.2.1
+
+- ✅ **Alpine / musl binaries** — `linux-x64-musl` and `linux-arm64-musl` are bundled; before
+  this the package failed to load on `node:alpine` (2026-10-21).
+- ✅ **Release CI installs what it ships** — the tarball is packed once, installed and exercised
+  (CJS + ESM) on Linux glibc x64/arm64, Alpine x64/arm64, macOS arm64/x64 and Windows x64, and
+  that exact tarball is published. The publish job checks the tag matches `package.json`.
+- ✅ **English API docs** — the JSDoc shipped in the `.d.ts` files (from Rust `///` and TS
+  comments) is now in English, matching the README.
+- ✅ Rust lint job (fmt, clippy, cargo test) added to CI, as in the other libs.
+
+---
+
 ## Goal
 
 Build a production-ready Node.js rate limiting library powered by Rust.

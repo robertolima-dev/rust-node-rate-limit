@@ -1,7 +1,7 @@
 /**
- * Integração com Fastify.
+ * Fastify integration.
  *
- * Uso:
+ * Usage:
  *   import { rateLimitPlugin } from "rust-node-rate-limit/fastify";
  *   fastify.register(rateLimitPlugin, { limit: 100, windowSeconds: 60 });
  */
@@ -15,24 +15,24 @@ import type {
 import { RateLimiter } from "../binding.js";
 
 export interface RateLimitPluginOptions extends FastifyPluginOptions {
-  /** Máximo de requisições por janela. */
+  /** Maximum requests per window. */
   limit: number;
-  /** Duração da janela, em segundos. */
+  /** Window length, in seconds. */
   windowSeconds: number;
-  /** Deriva a chave a partir da requisição. Padrão: `request.ip`. */
+  /** Derives the key from the request. Default: `request.ip`. */
   keyGenerator?: (request: FastifyRequest) => string;
-  /** Corpo JSON retornado quando bloqueado. Padrão: "Too many requests". */
+  /** JSON body returned when blocked. Default: "Too many requests". */
   message?: string;
-  /** Status HTTP quando bloqueado. Padrão: 429. */
+  /** HTTP status when blocked. Default: 429. */
   statusCode?: number;
-  /** Reusar um `RateLimiter` existente (ignora `limit`/`windowSeconds`). */
+  /** Reuse an existing `RateLimiter` (ignores `limit`/`windowSeconds`). */
   limiter?: RateLimiter;
 }
 
 /**
- * Plugin Fastify de rate limiting. Usa o hook `onRequest` para verificar o
- * limite antes do handler, escrevendo os headers `X-RateLimit-*` e respondendo
- * `429` quando excedido.
+ * Fastify rate limiting plugin. Uses the `onRequest` hook to check the limit
+ * before the handler, writing the `X-RateLimit-*` headers and responding
+ * `429` when it is exceeded.
  */
 export async function rateLimitPlugin(
   fastify: FastifyInstance,
@@ -61,7 +61,7 @@ export async function rateLimitPlugin(
       if (!result.allowed) {
         reply.header("Retry-After", result.retryAfter);
         reply.code(statusCode).send({ message });
-        return; // Resposta enviada: não chamamos done().
+        return; // Response already sent: done() is not called.
       }
 
       done();
@@ -69,10 +69,10 @@ export async function rateLimitPlugin(
   );
 }
 
-// Desabilita o encapsulamento do Fastify para que o hook `onRequest` se aplique
-// ao escopo onde o plugin é registrado (mesmo comportamento de envolver com
-// `fastify-plugin`). Sem isso, rotas registradas como "irmãs" do plugin não
-// passariam pelo rate limiter.
+// Disables Fastify encapsulation so the `onRequest` hook applies to the scope
+// where the plugin is registered (the same as wrapping it with
+// `fastify-plugin`). Without it, routes registered as "siblings" of the plugin
+// would not go through the rate limiter.
 (rateLimitPlugin as unknown as Record<symbol, boolean>)[
   Symbol.for("skip-override")
 ] = true;

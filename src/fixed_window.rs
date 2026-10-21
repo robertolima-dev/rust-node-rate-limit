@@ -1,30 +1,30 @@
-//! Algoritmo Fixed Window.
+//! The Fixed Window algorithm.
 //!
-//! Cada chave tem uma janela de `window` segundos. Dentro da janela são
-//! permitidas até `limit` requisições; ao expirar, a janela "vira" e a contagem
-//! recomeça do zero. É simples, previsível e barato — ideal para um core nativo.
+//! Each key has a window of `window` seconds. Up to `limit` requests are allowed
+//! inside the window; when it expires, the window "rolls over" and the count
+//! starts again from zero. Simple, predictable and cheap — ideal for a native core.
 
 use crate::entry::RateLimitEntry;
 
-/// Resultado de aplicar uma requisição (hit) sobre uma entrada.
+/// Result of applying one request (hit) to an entry.
 pub struct Decision {
-    /// Se a requisição é permitida nesta janela.
+    /// Whether the request is allowed in this window.
     pub allowed: bool,
-    /// Requisições restantes na janela atual (0 quando bloqueada).
+    /// Requests left in the current window (0 when blocked).
     pub remaining: u64,
-    /// Segundos até poder tentar de novo (0 quando permitida).
+    /// Seconds until the client may retry (0 when allowed).
     pub retry_after: u64,
-    /// Segundos até a janela atual reiniciar.
+    /// Seconds until the current window resets.
     pub reset_after: u64,
 }
 
-/// Aplica uma requisição à entrada, sob o algoritmo Fixed Window.
+/// Applies one request to the entry under the Fixed Window algorithm.
 ///
-/// Recebe `&mut RateLimitEntry` porque pode reiniciar a janela e incrementar a
-/// contagem in-place. O chamador segura o lock do shard do DashMap durante a
-/// chamada, garantindo atomicidade leitura-modificação-escrita por chave.
+/// Takes `&mut RateLimitEntry` because it may restart the window and increment
+/// the count in place. The caller holds the DashMap shard lock during the call,
+/// which makes the read-modify-write atomic per key.
 pub fn hit(entry: &mut RateLimitEntry, limit: u64, window: u64, now: u64) -> Decision {
-    // Janela expirada? Reinicia contagem e marca o novo início.
+    // Window expired? Reset the count and record the new start.
     if now.saturating_sub(entry.window_start) >= window {
         entry.window_start = now;
         entry.count = 0;

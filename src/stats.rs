@@ -1,12 +1,12 @@
-//! Contadores de estatísticas e tipos de retorno expostos ao JS.
+//! Statistics counters and the return types exposed to JS.
 
 use napi_derive::napi;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-/// Contadores acumulados (thread-safe) do limiter.
+/// Accumulated (thread-safe) counters of the limiter.
 ///
-/// Usamos atômicos `Relaxed`: queremos apenas contagens corretas no agregado,
-/// sem necessidade de ordenação entre as duas variáveis.
+/// `Relaxed` atomics: we only need correct totals, with no ordering between
+/// the two variables.
 #[derive(Default)]
 pub struct Counters {
     allowed: AtomicU64,
@@ -14,7 +14,7 @@ pub struct Counters {
 }
 
 impl Counters {
-    /// Registra o resultado de uma verificação.
+    /// Records the result of one check.
     pub fn record(&self, allowed: bool) {
         if allowed {
             self.allowed.fetch_add(1, Ordering::Relaxed);
@@ -32,33 +32,33 @@ impl Counters {
     }
 }
 
-/// Retorno de `check()`.
+/// Return value of `check()`.
 ///
-/// `#[napi(object)]` gera um objeto JS simples já em `camelCase`. Usamos `i64`
-/// porque vira `number` no JavaScript (evitamos `BigInt`).
+/// `#[napi(object)]` generates a plain JS object already in `camelCase`. `i64`
+/// becomes `number` in JavaScript (avoiding `BigInt`).
 #[napi(object)]
 pub struct CheckResult {
-    /// Se a requisição é permitida.
+    /// Whether the request is allowed.
     pub allowed: bool,
-    /// Limite configurado para a janela.
+    /// Limit configured for the window.
     pub limit: i64,
-    /// Requisições restantes na janela atual.
+    /// Requests left in the current window.
     pub remaining: i64,
-    /// Segundos até poder tentar novamente (0 quando permitida).
+    /// Seconds until the client may retry (0 when allowed).
     pub retry_after: i64,
-    /// Segundos até a janela atual reiniciar.
+    /// Seconds until the current window resets.
     pub reset_after: i64,
 }
 
-/// Retorno de `stats()`.
+/// Return value of `stats()`.
 #[napi(object)]
 pub struct RateLimitStats {
-    /// Total de requisições permitidas desde a criação do limiter.
+    /// Total requests allowed since the limiter was created.
     pub allowed: i64,
-    /// Total de requisições bloqueadas desde a criação do limiter.
+    /// Total requests blocked since the limiter was created.
     pub blocked: i64,
-    /// Total de verificações (allowed + blocked).
+    /// Total checks (allowed + blocked).
     pub checks: i64,
-    /// Número de chaves atualmente rastreadas.
+    /// Number of keys currently tracked.
     pub active_keys: i64,
 }
