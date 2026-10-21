@@ -56,6 +56,25 @@ describe("RateLimiter — allow()/check()", () => {
   });
 });
 
+describe("RateLimiter — check() com buffer compartilhado", () => {
+  it("cada chamada devolve um objeto novo e limiters não se misturam", () => {
+    const a = new RateLimiter({ limit: 1, windowSeconds: 60 });
+    const b = new RateLimiter({ limit: 5, windowSeconds: 30, algorithm: "sliding" });
+    const a1 = a.check("k");
+    const b1 = b.check("k");
+    const a2 = a.check("k");
+    expect(a1).toMatchObject({ allowed: true, limit: 1, remaining: 0 });
+    expect(b1).toMatchObject({ allowed: true, limit: 5, remaining: 4 });
+    expect(a2).toMatchObject({ allowed: false, limit: 1, remaining: 0 });
+    expect(a2.retryAfter).toBeGreaterThanOrEqual(1);
+    expect(a1).not.toBe(a2);
+    expect(a1.allowed).toBe(true); // not overwritten by the later calls
+    expect(Object.keys(a1).sort()).toEqual(
+      ["allowed", "limit", "remaining", "resetAfter", "resetAfterMs", "retryAfter", "retryAfterMs"],
+    );
+  });
+});
+
 describe("RateLimiter — remaining()/reset()/clear()", () => {
   it("remaining() reflete o consumo sem consumir", () => {
     const limiter = new RateLimiter({ limit: 5, windowSeconds: 60 });

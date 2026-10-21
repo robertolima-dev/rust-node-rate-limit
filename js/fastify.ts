@@ -12,7 +12,7 @@ import type {
   FastifyReply,
   FastifyRequest,
 } from "fastify";
-import { RateLimiter } from "../binding.js";
+import { RateLimiter } from "./limiter";
 
 export interface RateLimitPluginOptions extends FastifyPluginOptions {
   /** Maximum requests per window. */

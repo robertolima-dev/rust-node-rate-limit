@@ -1,7 +1,7 @@
 {
   "name": "rust-node-rate-limit",
-  "version": "0.3.0",
-  "description": "Ultra-fast rate limiting for Node.js powered by Rust.",
+  "version": "0.3.1",
+  "description": "Local rate limiting for Node.js with a Rust core: fixed and sliding windows, correct headers, Express/Fastify/NestJS adapters.",
   "keywords": [
     "rate-limit",
     "rate-limiter",

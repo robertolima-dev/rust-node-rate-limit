@@ -7,7 +7,7 @@
  */
 
 import type { Request, Response, NextFunction } from "express";
-import { RateLimiter } from "../binding.js";
+import { RateLimiter } from "./limiter";
 
 export interface RateLimitMiddlewareOptions {
   /** Maximum requests per window. */

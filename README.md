@@ -1,11 +1,13 @@
 # rust-node-rate-limit
 
-**Ultra-fast rate limiting for Node.js powered by Rust.**
+**Local rate limiting for Node.js with a Rust core.**
 
-`rust-node-rate-limit` is a local, in-process rate limiter for Node.js with a
-core written in Rust. It offers two algorithms — **Fixed Window** (default) and
-**Sliding Window** — over a lock-free [`DashMap`](https://docs.rs/dashmap),
-giving you predictable limits with very low overhead.
+`rust-node-rate-limit` is a local, in-process rate limiter for Node.js. It offers
+two algorithms — **Fixed Window** (default) and **Sliding Window** — with
+millisecond windows, correct `X-RateLimit-*` / `Retry-After` headers, and
+ready-made adapters for Express, Fastify and NestJS. A check costs about
+0.2 µs (see [Performance](#performance)), far below anything an HTTP request
+does.
 
 It ships as a prebuilt native addon (via [napi-rs](https://napi.rs/)), so there
 is **no compiler required at install time** on supported platforms.
@@ -21,12 +23,12 @@ is **no compiler required at install time** on supported platforms.
 
 ## Features
 
-- 🦀 **Rust-powered** — the hot path is native code.
-- ⚡ **Ultra-fast** — minimal allocation, near-zero overhead.
 - 🪟 **Fixed Window** and **Sliding Window** algorithms — pick per limiter.
-- 🔌 **Express** middleware, **Fastify** plugin and **NestJS** guard.
+- ⏱️ **Sub-second windows** — `windowSeconds: 0.5` is 500 ms; results in seconds and ms.
+- 📮 **Correct headers** — `X-RateLimit-Limit/Remaining/Reset` and a `Retry-After` that is never 0.
+- 🔌 **Express** middleware, **Fastify** plugin and **NestJS** guard (Express and Fastify platforms).
+- 🛡️ **Strict options** — invalid `limit` / `windowSeconds` throw instead of being truncated.
 - 🧩 **TypeScript** support — generated `.d.ts`, dual CJS + ESM.
-- 🔒 **Thread-safe** — lock-free reads via `DashMap`.
 
 ---
 
@@ -297,18 +299,35 @@ It is O(1) in time and memory per key (no per-request timestamp log) and removes
 the boundary doubling, at the cost of being a smooth approximation rather than
 an exact count.
 
-Each key is stored in a concurrent `DashMap`. The read-modify-write on a key is
-atomic per shard, so the limiter is correct under heavy concurrency without a
-global lock.
+Each key is stored in a concurrent `DashMap` (a hash map split into shards,
+each with its own lock). The read-modify-write on a key happens under its
+shard's lock, so counts stay exact.
 
 ---
 
 ## Performance
 
-- **Rust core** on the hot path.
-- **`DashMap`** for sharded, concurrent key storage.
-- **Lock-free reads** for `remaining()`.
-- **Low allocation** — counters are plain integers, no per-request garbage.
+Measured on an Apple M2 with Node.js 24, 1,000 keys, 2 million calls:
+
+| Call                                    | Time per call |
+| --------------------------------------- | ------------- |
+| `allow(key)`                            | ~0.13 µs      |
+| `check(key)` (what the adapters use)    | ~0.18 µs      |
+| The same fixed window in plain JS (`Map`) | ~0.05 µs    |
+
+A rate limit check is tiny work — a hash lookup and an increment — and V8
+compiles that to fast machine code too. Each call into Rust also pays a fixed
+cost to cross the N-API boundary (copying the key into Rust, the call itself,
+converting the result back), which is larger than the check. So this library is
+**not faster than a plain JavaScript limiter**; it is fast enough that the limit
+check is negligible next to an HTTP request (typically 100 µs or more).
+
+What it gives you is the rest: two tested algorithms, sub-second windows,
+correct headers, strict validation and the framework adapters.
+
+`check()` builds its result object in JavaScript from numbers the native core
+writes into a reused buffer; returning a 7-field object through N-API directly
+cost ~1.1 µs per call (0.3.0 and earlier).
 
 ---
 

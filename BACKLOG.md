@@ -1,5 +1,15 @@
 # Project: rust-node-rate-limit
 
+## Shipped — v0.3.1
+
+- ✅ **`check()` ~6x faster** — returning a 7-field object through N-API cost one call into V8
+  per field (~1.1 µs). The native `checkInto()` now writes the numbers into a reused
+  `Float64Array` (read via `JsTypedArray`, which skips the per-call reference `Float64Array`
+  creates) and a TypeScript `RateLimiter` builds the object: ~0.18 µs. The adapters use
+  `check()` on every request (2026-10-21).
+- ✅ **Honest positioning** — "Ultra-fast" removed. The README shows the measured cost next to a
+  plain-JS limiter (~0.05 µs) and explains the N-API crossing cost.
+
 ## Shipped — v0.3.0
 
 - ✅ **NestJS guard headers on Fastify** — the guard only wrote `X-RateLimit-*`/`Retry-After`

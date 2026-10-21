@@ -15,7 +15,7 @@ import type {
   CanActivate,
   ExecutionContext,
 } from "@nestjs/common";
-import { RateLimiter } from "../binding.js";
+import { RateLimiter } from "./limiter";
 
 export interface RateLimitGuardOptions {
   /** Maximum requests per window. */

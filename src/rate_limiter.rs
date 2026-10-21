@@ -1,6 +1,7 @@
 //! The `RateLimiter` class exposed to Node.
 
 use dashmap::DashMap;
+use napi::{JsTypedArray, TypedArrayType};
 use napi_derive::napi;
 
 use crate::cleanup;
@@ -198,6 +199,42 @@ impl RateLimiter {
         self.apply(key)
     }
 
+    /// `check()` without building a JS object: writes the result into `out`
+    /// as `[allowed (1|0), limit, remaining, retryAfter, resetAfter,
+    /// retryAfterMs, resetAfterMs]`. Creating an object through N-API costs one
+    /// call into V8 per field (~1 µs for the 7 of them); the TypeScript wrapper
+    /// reuses one buffer and builds the object in JavaScript instead.
+    ///
+    /// It takes the legacy `JsTypedArray` rather than `Float64Array`: the latter
+    /// creates and deletes a reference to the array on every call, which cost
+    /// more than the rate limiting itself.
+    #[napi(js_name = "checkInto", ts_args_type = "key: string, out: Float64Array")]
+    pub fn check_into(&self, key: String, out: JsTypedArray) -> napi::Result<()> {
+        let wrong_buffer = || {
+            napi::Error::new(
+                napi::Status::InvalidArg,
+                format!("checkInto needs a Float64Array of at least {CHECK_FIELDS} items"),
+            )
+        };
+        let mut out = out.into_value().map_err(|_| wrong_buffer())?;
+        // `as_mut()` panics on a type mismatch, so check it first.
+        if out.typedarray_type != TypedArrayType::Float64 || out.length < CHECK_FIELDS {
+            return Err(wrong_buffer());
+        }
+        let r = self.apply(key);
+        let out: &mut [f64] = out.as_mut();
+        out[..CHECK_FIELDS].copy_from_slice(&[
+            if r.allowed { 1.0 } else { 0.0 },
+            r.limit as f64,
+            r.remaining as f64,
+            r.retry_after as f64,
+            r.reset_after as f64,
+            r.retry_after_ms as f64,
+            r.reset_after_ms as f64,
+        ]);
+        Ok(())
+    }
+
     /// Requests left for `key` in the current window (read-only: does not
     /// consume). If the key does not exist or its window expired, returns the limit.
     #[napi]
@@ -256,6 +293,9 @@ impl RateLimiter {
         }
     }
 }
+
+/// Number of slots `checkInto` writes.
+const CHECK_FIELDS: usize = 7;
 
 /// Largest integer a JS `number` represents exactly (2^53 - 1).
 const MAX_SAFE_INTEGER: f64 = 9_007_199_254_740_991.0;
