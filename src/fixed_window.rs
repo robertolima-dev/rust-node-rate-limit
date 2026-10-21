@@ -1,6 +1,7 @@
 //! The Fixed Window algorithm.
 //!
-//! Each key has a window of `window` seconds. Up to `limit` requests are allowed
+//! Each key has a window of `window` time units (milliseconds in `RateLimiter`;
+//! the algorithm only needs `window` and `now` in the same unit). Up to `limit` requests are allowed
 //! inside the window; when it expires, the window "rolls over" and the count
 //! starts again from zero. Simple, predictable and cheap — ideal for a native core.
 
@@ -12,9 +13,9 @@ pub struct Decision {
     pub allowed: bool,
     /// Requests left in the current window (0 when blocked).
     pub remaining: u64,
-    /// Seconds until the client may retry (0 when allowed).
+    /// Time until the client may retry, in the unit of `window` (0 when allowed).
     pub retry_after: u64,
-    /// Seconds until the current window resets.
+    /// Time until the current window resets, in the unit of `window`.
     pub reset_after: u64,
 }
 

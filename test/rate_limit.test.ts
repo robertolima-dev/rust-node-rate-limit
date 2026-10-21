@@ -113,6 +113,55 @@ describe("RateLimiter — configuração inválida", () => {
     expect(() => new RateLimiter({ limit: 10, windowSeconds: 0 })).toThrow();
     expect(() => new RateLimiter({ limit: 10, windowSeconds: -5 })).toThrow();
   });
+
+  it("rejeita limit fracionário em vez de truncar", () => {
+    expect(() => new RateLimiter({ limit: 1.5, windowSeconds: 60 })).toThrow(
+      /limit must be a positive integer, got 1.5/,
+    );
+  });
+
+  it("rejeita NaN, Infinity e janelas menores que 1 ms", () => {
+    expect(() => new RateLimiter({ limit: NaN, windowSeconds: 60 })).toThrow(/limit/);
+    expect(() => new RateLimiter({ limit: Infinity, windowSeconds: 60 })).toThrow(/limit/);
+    expect(() => new RateLimiter({ limit: 1, windowSeconds: NaN })).toThrow(/windowSeconds/);
+    expect(() => new RateLimiter({ limit: 1, windowSeconds: Infinity })).toThrow(/windowSeconds/);
+    expect(() => new RateLimiter({ limit: 1, windowSeconds: 0.0001 })).toThrow(/at least 0.001/);
+  });
+});
+
+describe("RateLimiter — janelas menores que 1 segundo", () => {
+  for (const algorithm of ["fixed", "sliding"] as const) {
+    it(`${algorithm}: windowSeconds 0.2 libera de novo depois de 200 ms`, async () => {
+      const limiter = new RateLimiter({ limit: 2, windowSeconds: 0.2, algorithm });
+      expect([limiter.allow("k"), limiter.allow("k"), limiter.allow("k")]).toEqual([
+        true,
+        true,
+        false,
+      ]);
+      // The sliding counter still weighs the previous window just after the boundary,
+      // so wait two windows to be past it for both algorithms.
+      await new Promise((r) => setTimeout(r, 450));
+      expect(limiter.allow("k")).toBe(true);
+    });
+  }
+
+  it("retryAfterMs tem precisão de ms e retryAfter arredonda para cima", () => {
+    const limiter = new RateLimiter({ limit: 1, windowSeconds: 0.5 });
+    limiter.allow("k");
+    const blocked = limiter.check("k");
+    expect(blocked.allowed).toBe(false);
+    expect(blocked.retryAfterMs).toBeGreaterThan(0);
+    expect(blocked.retryAfterMs).toBeLessThanOrEqual(500);
+    expect(blocked.retryAfter).toBe(1); // never 0 while blocked
+    expect(blocked.resetAfterMs).toBe(blocked.retryAfterMs);
+  });
+
+  it("windowSeconds 1.5 não é truncado para 1", () => {
+    const limiter = new RateLimiter({ limit: 1, windowSeconds: 1.5 });
+    const first = limiter.check("k");
+    expect(first.resetAfterMs).toBeGreaterThan(1000);
+    expect(first.resetAfter).toBe(2);
+  });
 });
 
 describe("RateLimiter — alta concorrência", () => {

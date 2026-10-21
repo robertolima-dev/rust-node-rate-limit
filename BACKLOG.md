@@ -1,5 +1,16 @@
 # Project: rust-node-rate-limit
 
+## Shipped — v0.2.2
+
+- ✅ **No silent truncation** — `limit` and `windowSeconds` arrived as integers through
+  napi, so `limit: 1.5` became 1, `windowSeconds: 1.5` became 1 s, and `windowSeconds: 0.5`
+  failed with "must be greater than 0". Options are now validated as numbers: `limit` must be
+  a positive integer, `NaN`/`Infinity` are rejected, with messages that show the value.
+- ✅ **Sub-second windows** — time is tracked in milliseconds; `windowSeconds: 0.5` is a
+  500 ms window (minimum 1 ms).
+- ✅ **`retryAfterMs` / `resetAfterMs`** on `check()`. `retryAfter` / `resetAfter` stay in
+  seconds (for the HTTP headers) and now round up, so a blocked client never sees 0.
+
 ## Shipped — v0.2.1
 
 - ✅ **Alpine / musl binaries** — `linux-x64-musl` and `linux-arm64-musl` are bundled; before

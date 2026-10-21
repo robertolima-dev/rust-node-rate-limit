@@ -44,10 +44,15 @@ pub struct CheckResult {
     pub limit: i64,
     /// Requests left in the current window.
     pub remaining: i64,
-    /// Seconds until the client may retry (0 when allowed).
+    /// Whole seconds until the client may retry, rounded up so a blocked client
+    /// never sees 0 (0 when allowed). Fits the HTTP `Retry-After` header.
     pub retry_after: i64,
-    /// Seconds until the current window resets.
+    /// Whole seconds until the current window resets, rounded up.
     pub reset_after: i64,
+    /// Milliseconds until the client may retry (0 when allowed).
+    pub retry_after_ms: i64,
+    /// Milliseconds until the current window resets.
+    pub reset_after_ms: i64,
 }
 
 /// Return value of `stats()`.

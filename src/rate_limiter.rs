@@ -4,7 +4,7 @@ use dashmap::DashMap;
 use napi_derive::napi;
 
 use crate::cleanup;
-use crate::entry::{now_seconds, RateLimitEntry};
+use crate::entry::{now_millis, RateLimitEntry};
 use crate::errors::RateLimitError;
 use crate::fixed_window;
 use crate::sliding_window::{self, SlidingEntry};
@@ -105,12 +105,16 @@ impl Backend {
 /// `#[napi(object)]` accepts a plain JS object. `window_seconds` becomes
 /// `windowSeconds` in JS automatically. `algorithm` is optional and defaults to
 /// `"fixed"`.
+///
+/// Both numbers arrive as `f64` so the constructor can reject what an integer
+/// conversion would silently truncate (`limit: 1.5`, `windowSeconds: 0.5`).
 #[napi(object)]
 pub struct RateLimiterOptions {
-    /// Maximum number of requests allowed per window.
-    pub limit: i64,
-    /// Window length, in seconds.
-    pub window_seconds: i64,
+    /// Maximum number of requests allowed per window: a positive integer.
+    pub limit: f64,
+    /// Window length, in seconds. Fractions are allowed (`0.5` is 500 ms); the
+    /// smallest window is 1 ms.
+    pub window_seconds: f64,
     /// Strategy: `"fixed"` (default) or `"sliding"` (sliding window counter,
     /// which smooths bursts at the window boundary).
     pub algorithm: Option<String>,
@@ -124,7 +128,7 @@ pub struct RateLimiterOptions {
 #[napi]
 pub struct RateLimiter {
     limit: u64,
-    window_seconds: u64,
+    window_ms: u64,
     backend: Backend,
     counters: Counters,
 }
@@ -134,15 +138,26 @@ impl RateLimiter {
     /// Creates a limiter. Throws (a JS exception) if the configuration is invalid.
     #[napi(constructor)]
     pub fn new(options: RateLimiterOptions) -> napi::Result<Self> {
-        if options.limit <= 0 {
-            return Err(
-                RateLimitError::InvalidConfig("limit must be greater than 0".into()).into(),
-            );
+        let limit = options.limit;
+        if !(limit.is_finite() && limit >= 1.0 && limit.fract() == 0.0 && limit <= MAX_SAFE_INTEGER)
+        {
+            return Err(RateLimitError::InvalidConfig(format!(
+                "limit must be a positive integer, got {limit}"
+            ))
+            .into());
         }
-        if options.window_seconds <= 0 {
-            return Err(RateLimitError::InvalidConfig(
-                "windowSeconds must be greater than 0".into(),
-            )
+        let seconds = options.window_seconds;
+        if !(seconds.is_finite() && seconds > 0.0) {
+            return Err(RateLimitError::InvalidConfig(format!(
+                "windowSeconds must be a positive number of seconds, got {seconds}"
+            ))
+            .into());
+        }
+        let window_ms = (seconds * 1000.0).round();
+        if !(1.0..=MAX_SAFE_INTEGER).contains(&window_ms) {
+            return Err(RateLimitError::InvalidConfig(format!(
+                "windowSeconds must be at least 0.001 (1 ms), got {seconds}"
+            ))
             .into());
         }
 
@@ -158,8 +173,8 @@ impl RateLimiter {
         };
 
         Ok(Self {
-            limit: options.limit as u64,
-            window_seconds: options.window_seconds as u64,
+            limit: limit as u64,
+            window_ms: window_ms as u64,
             backend,
             counters: Counters::default(),
         })
@@ -188,7 +203,7 @@ impl RateLimiter {
     #[napi]
     pub fn remaining(&self, key: String) -> i64 {
         self.backend
-            .remaining(&key, self.limit, self.window_seconds, now_seconds()) as i64
+            .remaining(&key, self.limit, self.window_ms, now_millis()) as i64
     }
 
     /// Removes the state of a single key (resets its count).
@@ -206,7 +221,7 @@ impl RateLimiter {
     /// Removes keys whose window expired and returns how many were removed.
     #[napi]
     pub fn cleanup(&self) -> i64 {
-        self.backend.cleanup(self.window_seconds, now_seconds()) as i64
+        self.backend.cleanup(self.window_ms, now_millis()) as i64
     }
 
     /// Returns the accumulated counters and the number of active keys.
@@ -225,10 +240,8 @@ impl RateLimiter {
     /// Core shared by `allow()` and `check()`: applies the active algorithm
     /// atomically per key and records the statistic.
     fn apply(&self, key: String) -> CheckResult {
-        let now = now_seconds();
-        let decision = self
-            .backend
-            .apply(key, self.limit, self.window_seconds, now);
+        let now = now_millis();
+        let decision = self.backend.apply(key, self.limit, self.window_ms, now);
 
         self.counters.record(decision.allowed);
 
@@ -236,8 +249,19 @@ impl RateLimiter {
             allowed: decision.allowed,
             limit: self.limit as i64,
             remaining: decision.remaining as i64,
-            retry_after: decision.retry_after as i64,
-            reset_after: decision.reset_after as i64,
+            retry_after: ceil_seconds(decision.retry_after),
+            reset_after: ceil_seconds(decision.reset_after),
+            retry_after_ms: decision.retry_after as i64,
+            reset_after_ms: decision.reset_after as i64,
         }
     }
+}
+
+/// Largest integer a JS `number` represents exactly (2^53 - 1).
+const MAX_SAFE_INTEGER: f64 = 9_007_199_254_740_991.0;
+
+/// Milliseconds to whole seconds, rounded up: 1..=1000 ms is 1 s, so a blocked
+/// client is never told to retry in 0 seconds.
+fn ceil_seconds(ms: u64) -> i64 {
+    ms.div_ceil(1000) as i64
 }

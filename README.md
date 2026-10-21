@@ -191,12 +191,18 @@ The guard throws `HttpException` with status `429` when the limit is exceeded.
 
 | Option          | Type     | Description                                              |
 | --------------- | -------- | ------------------------------------------------------- |
-| `limit`         | `number` | Max requests allowed per window.                        |
-| `windowSeconds` | `number` | Window duration, in seconds.                            |
+| `limit`         | `number` | Max requests allowed per window. A positive integer.     |
+| `windowSeconds` | `number` | Window duration, in seconds. Fractions are allowed: `0.5` is a 500 ms window (minimum 1 ms). |
 | `algorithm`     | `string` | `"fixed"` (default) or `"sliding"`. Optional.           |
 
-Throws if `limit <= 0`, `windowSeconds <= 0`, or `algorithm` is not one of
-`"fixed"` / `"sliding"`.
+Throws if `limit` is not a positive integer (`1.5` is rejected, not truncated), if
+`windowSeconds` is not a positive number or is below `0.001`, if either is `NaN` or
+`Infinity`, or if `algorithm` is not one of `"fixed"` / `"sliding"`.
+
+```ts
+// 10 requests per 500 ms
+const burst = new RateLimiter({ limit: 10, windowSeconds: 0.5 });
+```
 
 ### `algorithm: string` (getter)
 
@@ -215,10 +221,16 @@ interface CheckResult {
   allowed: boolean;
   limit: number;
   remaining: number;
-  retryAfter: number; // seconds until you can retry (0 when allowed)
-  resetAfter: number; // seconds until the window resets
+  retryAfter: number; // whole seconds until you can retry, rounded up (0 when allowed)
+  resetAfter: number; // whole seconds until the window resets, rounded up
+  retryAfterMs: number; // the same in milliseconds (0 when allowed)
+  resetAfterMs: number; // the same in milliseconds
 }
 ```
+
+`retryAfter` / `resetAfter` are what the framework adapters send in the `Retry-After`
+and `X-RateLimit-Reset` headers. They round up, so a blocked client is never told to
+retry in 0 seconds, even with sub-second windows.
 
 ### `remaining(key): number`
 
